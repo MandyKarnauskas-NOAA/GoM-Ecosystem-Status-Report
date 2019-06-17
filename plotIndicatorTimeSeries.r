@@ -71,7 +71,7 @@ if (is.na(outname))  {  filnam <- paste(c(unlist(strsplit(filename, ".csv"))), "
 
   ymin <- min(d[,coltoplot], na.rm=T) * 0.99                                     # get common y scale
   ymax <- max(d[,coltoplot], na.rm=T) * 1.01    
-
+                            
 for (i in coltoplot)  {                                                         # loop through indicator columns
   
   co_all <- d[,i]                                                               # data
