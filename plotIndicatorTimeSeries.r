@@ -36,7 +36,8 @@
 #  sameYscale = for multi-panel plots, if y-axis scale should be the same      #
 #  anom = calculate and plot monthly anomalies                                 #
 #               - for monthly anomalies: anom = "mon"                          #
-#               - for standardized monthly anomalies: anom ="stmon"            # 
+#               - for standardized monthly anomalies: anom ="stmon"            #
+#  outtype    = format for output (defaults to png, pdf also possible)         # 
 #                                                                              #
 #   function examples:                                                         #
 #  plotIndicatorTimeSeries("indicator.csv", coltoplot=2:4, plotrownum=3)       #
@@ -50,7 +51,7 @@
 
 plotIndicatorTimeSeries <-  function(filename, coltoplot=2, sublabel=F, plotrownum = 1, plotcolnum = 1, 
                                      yposadj=1, widadj=1, hgtadj=1, trendAnalysis=T, redgreen=T, outname=NA, sameYscale=F, 
-                                     anom="none")  {
+                                     anom="none", outtype="png")  {
 
   d1 <- read.table(filename, header=F, sep=",", skip=0, quote="")                         # load data file
   d <- read.table(filename, header=F, sep=",", skip=3, quote="")                          # load data file labels
@@ -70,10 +71,14 @@ plotIndicatorTimeSeries <-  function(filename, coltoplot=2, sublabel=F, plotrown
   if (length(tim_all) <= 5)  {  wid <- wid*3  }
   wid <- wid * widadj     #  set adjusted width if specified  
 
- if (plotcolnum + plotrownum > 2)  { plotcolnum2 <- plotcolnum*0.65; plotrownum2 <- plotrownum*0.65 }  else { plotcolnum2 <- plotcolnum; plotrownum2 <- plotrownum }
-                                                                                # set graphics specifications
-if (is.na(outname))  {  filnam <- paste(c(unlist(strsplit(filename, ".csv"))), ".pdf", sep="") }   else   {  filnam <- outname  }
-                                                                                # layout for single or multi-panel plots
+ if (plotcolnum + plotrownum > 2)  { plotcolnum2 <- plotcolnum*0.65; plotrownum2 <- plotrownum*0.65 }  else 
+    { plotcolnum2 <- plotcolnum; plotrownum2 <- plotrownum }
+                                                                  # set graphics specifications
+if (is.na(outname))  {  filnam <- paste(c(unlist(strsplit(filename, ".csv"))), ".", outtype, sep="") }   else   {  filnam <- outname }
+
+if (outtype=="png")  {
+  png(filename=filnam, units="in", width=((wid+10)/7)*plotcolnum2/1.3, height=hgtadj*(3.5*plotrownum2)/1.3, pointsize=12, res=72*4) }
+                                                                                  # layout for single or multi-panel plots
   nf <- layout(matrix(c(1:(plotrownum*plotcolnum*2)), plotrownum, plotcolnum*2, byrow = TRUE), rep(c(wid/5, 1), plotcolnum), rep(4, plotrownum))
   layout.show(nf)  
   
@@ -112,10 +117,10 @@ if (length(tim) > 5) {
   
   if (trendAnalysis==T)  {  par(mar=c(2.5,5,3,0), xpd=F)  }  else  {  par(mar=c(2.5,5,3,1), xpd=F)  } 
   par(mgp=c(3*yposadj,1,0))
-  if (sublabel==T) { mm <- paste(as.character(d1[1,i]), "\n", as.character(d1[3,i])) } else { mm <- d1[1,i] }
+  if (sublabel==T) { mm <- paste(as.character(d1[1,i]), "\n", as.character(d1[3,i]), sep="") } else { mm <- d1[1,i] }
   yl <- d1[2,i]
-    if (anom=="mon")   { yl <- paste(yl, "\n", "monthly anomaly") }
-    if (anom=="stmon") { yl <- paste(yl, "\n", "standardized monthly anomaly") }
+    if (anom=="mon")   { yl <- paste(yl, "\n", "monthly anomaly", sep="") }
+    if (anom=="stmon") { yl <- paste(yl, "\n", "standardized monthly anomaly", sep="") }
     
   if (sameYscale==T)  {   plot(tim_all, co_all, col=0, axes=F, xlab="", ylab=yl, main=mm, ylim=c(ymin, ymax))    }                   # plot time series
   if (sameYscale==F)  {   plot(tim_all, co_all, col=0, axes=F, xlab="", ylab=yl, main=mm)                        }                   # plot time series
@@ -180,8 +185,10 @@ if ( longlabs > 30  )  {
   wid <- longlabs/30 * wid    
   hgtadj <- longlabs/30 * hgtadj   } 
 # 
- 
-dev.copy(pdf, filnam, width=((wid+10)/7)*plotcolnum2/1.3, height=hgtadj*(3.5*plotrownum2)/1.3)  #, pointsize=12, res=72*4)
+if (outtype=="pdf")  {
+  dev.copy(pdf, filnam, width=((wid+10)/7)*plotcolnum2/1.3, height=hgtadj*(3.5*plotrownum2)/1.3)  #, pointsize=12, res=72*4) 
+  dev.off()
+  } 
 dev.off()                                                                       # close graphics device
 }                                                                               # end of function
 
