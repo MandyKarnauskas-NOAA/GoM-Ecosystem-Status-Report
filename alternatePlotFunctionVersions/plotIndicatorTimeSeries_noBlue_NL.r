@@ -129,8 +129,8 @@ if (length(tim) <= 5) {
     colind <- c("#FF000080", "#00FF0080")                                       # shading of anomalies +/- 1 S.D.  
 if (length(tim) >= 5 & redgreen==T) {    for (j in 2:length(tim))  {  polygon(c(tim[j-1], tim[j], tim[j], tim[j-1]), 
                                  y=c(mean(co, na.rm=T), mean(co, na.rm=T), co[j], co[j-1]), col=colind[as.numeric(mean(co[(j-1):j], na.rm=T) > mean(co, na.rm=T))+1], border=F) }     }
-  polygon(c(min(tim_all)-5, max(tim_all)+5, max(tim_all)+5, min(tim_all)-5), 
-          c(mean(co_all, na.rm=T)-sd(co_all, na.rm=T), mean(co_all, na.rm=T)-sd(co_all, na.rm=T), mean(co_all, na.rm=T)+sd(co_all, na.rm=T), mean(co_all, na.rm=T)+sd(co_all, na.rm=T)), col="white", border=T)
+#  polygon(c(min(tim_all)-5, max(tim_all)+5, max(tim_all)+5, min(tim_all)-5), 
+#          c(mean(co_all, na.rm=T)-sd(co_all, na.rm=T), mean(co_all, na.rm=T)-sd(co_all, na.rm=T), mean(co_all, na.rm=T)+sd(co_all, na.rm=T), mean(co_all, na.rm=T)+sd(co_all, na.rm=T)), col="white", border=T)
   if (mean(diff(tim_all)) <= 1 )  {  lines(tim_all, co_all, lwd=2); points(tim_all, co_all, pch=20)   }                       # plot time series 
   if (mean(diff(tim_all)) > 1  )  {  points(tim_all, co_all, pch=20, cex=1.5)   }
   abline(h=mean(co, na.rm=T), lty=8); abline(h=mean(co, na.rm=T)+sd(co, na.rm=T), lty=1); abline(h=mean(co, na.rm=T)-sd(co, na.rm=T), lty=1)

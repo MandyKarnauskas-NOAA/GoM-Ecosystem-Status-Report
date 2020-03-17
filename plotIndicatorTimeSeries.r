@@ -1,8 +1,8 @@
 ################################################################################
 #                                                                              #
 #   Standardized plotting of indicator time series for Eco Status Report       #
-#   M. Karnauskas, Nov 23, 2016                                                # 
-#                                                                              #
+#   M. Karnauskas, Nov 23, 2016 -  updated Mar 17 2020                         #
+#                                                                              # 
 #   Typical formatting used by Alaska Report Card and CC IEA                   #
 #   Plots time series, values above and below 1 S.D., and mean                 # 
 #   Highlights last 5 years of data and shows pattern in mean and trend        #
@@ -12,8 +12,11 @@
 #   Row 1 is indicator name (main title of plot)                               #
 #   Row 2 is units (y-axis label)                                              #
 #   Row 3 is spatial extent or other specifying information                    #
-#   Time can be in yearly or monthly time steps, MUST be in this format:       #
-#      YYYY (e.g., 2011) or mmmYYYY (e.g., Jan1986)                            #
+#   Time can be in yearly or monthly time step                                 #
+#      - If annual time series, years must be in YYYY format (e.g., 2011)      #
+#      - Monthly time series can be in any combination of text abbreviation    #
+#         and year formats (e.g, Jan1986, Jan-86, 1986jan)                     #
+#         Note: must exclude days! (e.g, 1-Dec will be read as December 2001)  #     
 #                                                                              #
 ################################################################################
 #                                                                              #
@@ -31,6 +34,9 @@
 #   ** default is T unless fewer than 4 data points available in last 5 years  # 
 #  outname    = specify alternate output filename (default is same as input)   #
 #  sameYscale = for multi-panel plots, if y-axis scale should be the same      #
+#  anom = calculate and plot monthly anomalies                                 #
+#               - for monthly anomalies: anom = "mon"                          #
+#               - for standardized monthly anomalies: anom ="stmon"            # 
 #                                                                              #
 #   function examples:                                                         #
 #  plotIndicatorTimeSeries("indicator.csv", coltoplot=2:4, plotrownum=3)       #
@@ -43,15 +49,21 @@
 ################################################################################
 
 plotIndicatorTimeSeries <-  function(filename, coltoplot=2, sublabel=F, plotrownum = 1, plotcolnum = 1, 
-                                     yposadj=1, widadj=1, hgtadj=1, trendAnalysis=T, redgreen=T, outname=NA, sameYscale=F)  {
+                                     yposadj=1, widadj=1, hgtadj=1, trendAnalysis=T, redgreen=T, outname=NA, sameYscale=F, 
+                                     anom="none")  {
 
   d1 <- read.table(filename, header=F, sep=",", skip=0, quote="")                         # load data file
   d <- read.table(filename, header=F, sep=",", skip=3, quote="")                          # load data file labels
   d <- d[rowSums(d[2:ncol(d)], na.rm=T)!=0,]
 
   tim_all <- d$V1                                                                   # temporal data
-  if ( class(tim_all)=="factor" )  {  monthly <- T  }   else  {  monthly <- F  }    # decide whether monthly or yearly and adjust accordingly
-  if ( class(tim_all)=="factor" )  {  tim_all <- as.numeric(substr(tim_all,4,7)) + (match(substr(tim_all,1,3), month.abb)-1)/12  }
+  if ( class(tim_all)=="numeric" )  {  monthly <- F  }   else  {  monthly <- T  }   # decide whether monthly or yearly and adjust accordingly
+  if (monthly==T)  {
+    yrlis <- as.numeric(unlist(regmatches(as.character(tim_all), gregexpr("[[:digit:]]+", as.character(tim_all)))))
+      yrlis[which(yrlis < 1500)] <- yrlis[which(yrlis < 1500)] + 2000
+      yrlis[which(yrlis > 2050)] <- yrlis[which(yrlis > 2050)] - 100
+    molis <- matches <- unlist(regmatches(as.character(tim_all), gregexpr("[[:alpha:]]+", as.character(tim_all))))
+    tim_all <- yrlis + (match(tolower(molis), tolower(month.abb))-1)/12  }
   
   if (monthly==F) { wid <- length(tim_all) }  else  { wid <- length(tim_all)/12 }       # adjustment for width
   if (length(tim_all) <= 10 & length(tim_all) > 5) {  wid <- wid*2  }
@@ -75,6 +87,22 @@ if (is.na(outname))  {  filnam <- paste(c(unlist(strsplit(filename, ".csv"))), "
 for (i in coltoplot)  {                                                         # loop through indicator columns
   
   co_all <- d[,i]                                                               # data
+  
+  if (anom=="mon")  { 
+    moref <- (match(tolower(molis), tolower(month.abb)))
+    moav  <- tapply(co_all, moref, mean)
+    for (m in 1:12) {
+      co_all[which(moref==m)] <- co_all[which(moref==m)] - moav[m]
+    }  }
+  
+  if (anom=="stmon")  { 
+    moref <- (match(tolower(molis), tolower(month.abb)))
+    moav  <- tapply(co_all, moref, mean)
+    most  <- tapply(co_all, moref, sd)
+    for (m in 1:12) {
+      co_all[which(moref==m)] <- (co_all[which(moref==m)] - moav[m])/most[m]
+    }  }
+  
   if (sum(!is.na(co_all)) == 0) {  plot.new(); plot.new()  }  else {
   
   tim <- tim_all[!is.na(co_all)]                                                # for dealing with missing values 
@@ -85,8 +113,12 @@ if (length(tim) > 5) {
   if (trendAnalysis==T)  {  par(mar=c(2.5,5,3,0), xpd=F)  }  else  {  par(mar=c(2.5,5,3,1), xpd=F)  } 
   par(mgp=c(3*yposadj,1,0))
   if (sublabel==T) { mm <- paste(as.character(d1[1,i]), "\n", as.character(d1[3,i])) } else { mm <- d1[1,i] }
-  if (sameYscale==T)  {   plot(tim_all, co_all, col=0, axes=F, xlab="", ylab=d1[2,i], main=mm, ylim=c(ymin, ymax))    }                   # plot time series
-  if (sameYscale==F)  {   plot(tim_all, co_all, col=0, axes=F, xlab="", ylab=d1[2,i], main=mm)                        }                   # plot time series
+  yl <- d1[2,i]
+    if (anom=="mon")   { yl <- paste(yl, "\n", "monthly anomaly") }
+    if (anom=="stmon") { yl <- paste(yl, "\n", "standardized monthly anomaly") }
+    
+  if (sameYscale==T)  {   plot(tim_all, co_all, col=0, axes=F, xlab="", ylab=yl, main=mm, ylim=c(ymin, ymax))    }                   # plot time series
+  if (sameYscale==F)  {   plot(tim_all, co_all, col=0, axes=F, xlab="", ylab=yl, main=mm)                        }                   # plot time series
     colind <- c("#FF000080", "#00FF0080")                                       # shading of anomalies +/- 1 S.D.  
 if (length(tim) >= 5 & redgreen==T) {
     for (j in 2:length(tim))  {  polygon(c(tim[j-1], tim[j], tim[j], tim[j-1]), y=c(mean(co, na.rm=T), mean(co, na.rm=T), co[j], co[j-1]), col=colind[as.numeric(mean(co[(j-1):j], na.rm=T) > mean(co, na.rm=T))+1], border=F) }  
@@ -98,8 +130,8 @@ if (length(tim) >= 5 & redgreen==T) {
   if (mean(diff(tim_all)) <= 1.1 )  {  lines(tim_all, co_all, lwd=2); points(tim_all, co_all, pch=20, cex=0.75)   }                       # plot time series 
   if (mean(diff(tim_all)) > 1.1  )  {  points(tim_all, co_all, pch=20, cex=1.5)   }
   abline(h=mean(co, na.rm=T), lty=8); abline(h=mean(co, na.rm=T)+sd(co, na.rm=T), lty=1); abline(h=mean(co)-sd(co), lty=1)
-    if (length(tim) > 10)  { axis(1, at=seq(1900, 2015, 5)) } else { axis(1, at=seq(1900, 2016, 2)) }    
-  axis(1, at=seq(1900, 2016, 1), tck=-0.015, lab=rep("", 117))                  # add axes
+    if (length(tim) > 10)  { axis(1, at=seq(1900, 2050, 5)) } else { axis(1, at=seq(1900, 2050, 2)) }    
+  axis(1, at=seq(1900, 2050, 1), tck=-0.015, lab=rep("", 151))                  # add axes
   axis(2, las=2); box()
        
   if (trendAnalysis==T)  {        
@@ -134,7 +166,7 @@ if (length(tim) >= 5 & redgreen==T) {    for (j in 2:length(tim))  {  polygon(c(
   if (mean(diff(tim_all)) > 1  )  {  points(tim_all, co_all, pch=20, cex=1.5)   }
   abline(h=mean(co, na.rm=T), lty=8); abline(h=mean(co, na.rm=T)+sd(co, na.rm=T), lty=1); abline(h=mean(co, na.rm=T)-sd(co, na.rm=T), lty=1)
   axis(1, at=tim) 
-  axis(1, at=seq(1900, 2016, 1), tck=-0.015, lab=rep("", 117))                                                 # add axes
+  axis(1, at=seq(1900, 2050, 1), tck=-0.015, lab=rep("", 151))                                                 # add axes
   axis(2, las=2); box()
   if (length(coltoplot)>1 & trendAnalysis==T)  {
   par(mar=c(0,0,0,0), xpd=F)                    
