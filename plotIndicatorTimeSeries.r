@@ -1,7 +1,7 @@
 ################################################################################
 #                                                                              #
 #   Standardized plotting of indicator time series for Eco Status Report       #
-#   M. Karnauskas, Nov 23, 2016 -  updated Mar 17 2020                         #
+#   M. Karnauskas, Nov 23, 2016 -  updated Mar 24 2020                         #
 #                                                                              # 
 #   Typical formatting used by Alaska Report Card and CC IEA                   #
 #   Plots time series, values above and below 1 S.D., and mean                 # 
@@ -38,6 +38,9 @@
 #               - for monthly anomalies: anom = "mon"                          #
 #               - for standardized monthly anomalies: anom ="stmon"            #
 #  outtype    = format for output (defaults to png, pdf also possible)         # 
+#  propNAallow= proportion NAs allowed in trend analysis (defaults to 0.4)     #
+#               - if proprtion of NAs in last 5 years exceeds this value,      # 
+#                    overrides trendAnalysis=T and will not plot trend         #
 #                                                                              #
 #   function examples:                                                         #
 #  plotIndicatorTimeSeries("indicator.csv", coltoplot=2:4, plotrownum=3)       #
@@ -51,14 +54,14 @@
 
 plotIndicatorTimeSeries <-  function(filename, coltoplot=2, sublabel=F, plotrownum = 1, plotcolnum = 1, 
                                      yposadj=1, widadj=1, hgtadj=1, trendAnalysis=T, redgreen=T, outname=NA, sameYscale=F, 
-                                     anom="none", outtype="png")  {
+                                     anom="none", propNAallow= 0.60, outtype="png")  {
 
   d1 <- read.table(filename, header=F, sep=",", skip=0, quote="")                         # load data file
   d <- read.table(filename, header=F, sep=",", skip=3, quote="")                          # load data file labels
   d <- d[rowSums(d[2:ncol(d)], na.rm=T)!=0,]
 
   tim_all <- d$V1                                                                   # temporal data
-  if ( class(tim_all)=="numeric" )  {  monthly <- F  }   else  {  monthly <- T  }   # decide whether monthly or yearly and adjust accordingly
+  if (class(tim_all)=="numeric" | class(tim_all)=="integer")  {  monthly <- F  }   else  {  monthly <- T  }   # decide whether monthly or yearly and adjust accordingly
   if (monthly==T)  {
     yrlis <- as.numeric(unlist(regmatches(as.character(tim_all), gregexpr("[[:digit:]]+", as.character(tim_all)))))
       yrlis[which(yrlis < 1500)] <- yrlis[which(yrlis < 1500)] + 2000
@@ -76,6 +79,14 @@ plotIndicatorTimeSeries <-  function(filename, coltoplot=2, sublabel=F, plotrown
                                                                   # set graphics specifications
 if (is.na(outname))  {  filnam <- paste(c(unlist(strsplit(filename, ".csv"))), ".", outtype, sep="") }   else   {  filnam <- outname }
 
+  
+  if (sublabel==T) { mm <- paste(as.character(d1[1,max(coltoplot)]), "\n", as.character(d1[3,max(coltoplot)]), sep="") } else { mm <- d1[1,max(coltoplot)] }  
+# adjust plot size for extra long labels 
+  longlabs <- max(nchar(as.character(mm)), nchar(as.character(d1[2,max(coltoplot)])))
+  if ( longlabs > 30  )  {   
+    wid <- longlabs/30 * wid    
+    hgtadj <- longlabs/30 * hgtadj   }   
+  
 if (outtype=="png")  {
   png(filename=filnam, units="in", width=((wid+10)/7)*plotcolnum2/1.3, height=hgtadj*(3.5*plotrownum2)/1.3, pointsize=12, res=72*4) }
                                                                                   # layout for single or multi-panel plots
@@ -95,15 +106,15 @@ for (i in coltoplot)  {                                                         
   
   if (anom=="mon")  { 
     moref <- (match(tolower(molis), tolower(month.abb)))
-    moav  <- tapply(co_all, moref, mean)
+    moav  <- tapply(co_all, moref, mean, na.rm=T)
     for (m in 1:12) {
       co_all[which(moref==m)] <- co_all[which(moref==m)] - moav[m]
     }  }
   
   if (anom=="stmon")  { 
     moref <- (match(tolower(molis), tolower(month.abb)))
-    moav  <- tapply(co_all, moref, mean)
-    most  <- tapply(co_all, moref, sd)
+    moav  <- tapply(co_all, moref, mean, na.rm=T)
+    most  <- tapply(co_all, moref, sd, na.rm=T)
     for (m in 1:12) {
       co_all[which(moref==m)] <- (co_all[which(moref==m)] - moav[m])/most[m]
     }  }
@@ -143,8 +154,9 @@ if (length(tim) >= 5 & redgreen==T) {
   par(mar=c(2.5,0,3,0))                                                         #  second panel on mean and trend of last 5 years
   if (monthly == F)  {  last5 <- co_all[(nrow(d)-4):nrow(d)]  }  else  {  last5 <- co_all[(nrow(d)-59):nrow(d)]  }
   plot(1, xlim=c(0.94,1.06), ylim=c(0.6, 1.6), col=0, axes=F, xlab="", ylab="")
-  points(1, 1.225, pch=20, cex=5)                                                 # analyze mean of last 5 years
-  if (sum(is.na(last5)) < 2)  {
+# analyze mean of last 5 years
+  if (sum(is.na(last5))/length(last5) < propNAallow)  {
+  points(1, 1.225, pch=20, cex=5)  
   if (mean(last5, na.rm=T) > (mean(co, na.rm=T)+sd(co, na.rm=T)))  { text(1, 1.2, col="white", "+", cex=2.6, font=2) }
   if (mean(last5, na.rm=T) < (mean(co, na.rm=T)-sd(co, na.rm=T)))  { text(1, 1.2, col="white", "-", cex=2.6, font=2) }
   if (monthly == F)  {  res   <- summary(lm(last5~tim[1:5]))   } else {    res   <- summary(lm(last5~tim[1:60]))   }
@@ -179,11 +191,6 @@ if (length(tim) >= 5 & redgreen==T) {    for (j in 2:length(tim))  {  polygon(c(
       }   }  
        }
   
-# adjust plot size for extra long labels 
-longlabs <- max(nchar(as.character(mm)), nchar(as.character(d1[2,i])))
-if ( longlabs > 30  )  {   
-  wid <- longlabs/30 * wid    
-  hgtadj <- longlabs/30 * hgtadj   } 
 # 
 if (outtype=="pdf")  {
   dev.copy(pdf, filnam, width=((wid+10)/7)*plotcolnum2/1.3, height=hgtadj*(3.5*plotrownum2)/1.3)  #, pointsize=12, res=72*4) 
