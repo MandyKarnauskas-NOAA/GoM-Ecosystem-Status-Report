@@ -325,7 +325,7 @@ if (outtype=="pdf")  {
   dev.copy(pdf, filnam, width=((wid+10)/7)*plotcolnum2/1.3, height=hgtadj*(3.5*plotrownum2)/1.3)  #, pointsize=12, res=72*4)
   dev.off()    }                                                                # close graphics device if pdf
 
-dev.off()                                                                       # close graphics device if png
+  if (outtype != "") {  dev.off() }   # close graphics device if png
 }
 
 knitr::opts_chunk$set(echo = F, warning = F, message = F)                       # fix suggested by B. Best
